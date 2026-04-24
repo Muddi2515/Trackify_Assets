@@ -1,10 +1,22 @@
-const express = require('express');
-const cors = require('cors');
+const express       = require('express');
+const cors          = require('cors');
+const path          = require('path');
+const rateLimit     = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+app.use('/api/', apiLimiter);
 
 // Routes
 app.use('/api/assets',      require('./routes/assets'));
