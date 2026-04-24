@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Trackify — Asset Management</title>
+  <style>
+    /* ─── Reset & Variables ─────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --sidebar-w: 240px;
+      --primary:   #4f46e5;
+      --primary-d: #3730a3;
+      --success:   #16a34a;
+      --warning:   #d97706;
+      --danger:    #dc2626;
+      --info:      #0891b2;
+      --bg:        #f1f5f9;
+      --surface:   #ffffff;
+      --sidebar-bg:#1e1b4b;
+      --sidebar-fg:#c7d2fe;
+      --text:      #1e293b;
+      --muted:     #64748b;
+      --border:    #e2e8f0;
+      --radius:    10px;
+      --shadow:    0 2px 12px rgba(0,0,0,.08);
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+
+    /* ─── Sidebar ────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w); background: var(--sidebar-bg); color: var(--sidebar-fg);
+      display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh;
+      transition: transform .25s; z-index: 200; overflow-y: auto;
+    }
+    .sidebar-brand {
+      padding: 24px 20px 18px; font-size: 1.35rem; font-weight: 700;
+      color: #fff; letter-spacing: .5px; border-bottom: 1px solid rgba(255,255,255,.1);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sidebar-brand svg { flex-shrink: 0; }
+    .sidebar-nav { padding: 12px 0; flex: 1; }
+    .nav-section { font-size: .7rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: rgba(255,255,255,.35); padding: 16px 20px 6px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 11px 20px;
+      cursor: pointer; border-left: 3px solid transparent; transition: all .15s;
+      font-size: .9rem; color: var(--sidebar-fg);
+    }
+    .nav-item:hover  { background: rgba(255,255,255,.07); color: #fff; }
+    .nav-item.active { background: rgba(255,255,255,.12); color: #fff; border-left-color: #818cf8; }
+    .nav-item svg    { flex-shrink: 0; opacity: .8; }
+
+    /* ─── Main Layout ────────────────────────────────────── */
+    #main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+    .topbar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar h1 { font-size: 1.1rem; font-weight: 600; }
+    .topbar-actions { display: flex; gap: 10px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+      border: none; border-radius: var(--radius); cursor: pointer; font-size: .875rem;
+      font-weight: 500; transition: all .15s;
+    }
+    .btn-primary   { background: var(--primary);  color: #fff; }
+    .btn-primary:hover { background: var(--primary-d); }
+    .btn-danger    { background: var(--danger);   color: #fff; }
+    .btn-danger:hover  { filter: brightness(.9); }
+    .btn-outline   { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { background: var(--bg); }
+    .btn-success   { background: var(--success);  color: #fff; }
+    .btn-sm        { padding: 5px 10px; font-size: .8rem; }
+
+    #content { padding: 28px; flex: 1; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ─── Dashboard Cards ────────────────────────────────── */
+    .cards-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-bottom: 28px;
+    }
+    .card {
+      background: var(--surface); border-radius: var(--radius); padding: 22px 20px;
+      box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px;
+    }
+    .card-icon {
+      width: 46px; height: 46px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center; margin-bottom: 4px;
+    }
+    .card-icon.blue   { background: #eff6ff; color: #3b82f6; }
+    .card-icon.green  { background: #f0fdf4; color: #16a34a; }
+    .card-icon.amber  { background: #fffbeb; color: #d97706; }
+    .card-icon.purple { background: #f5f3ff; color: #7c3aed; }
+    .card-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .card-label { font-size: .8rem; color: var(--muted); font-weight: 500; }
+
+    /* ─── Table ──────────────────────────────────────────── */
+    .table-wrap { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .table-toolbar {
+      display: flex; align-items: center; gap: 12px; padding: 16px 18px;
+      border-bottom: 1px solid var(--border); flex-wrap: wrap;
+    }
+    .search-box {
+      display: flex; align-items: center; gap: 8px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; flex: 1; min-width: 180px;
+    }
+    .search-box input { border: none; background: transparent; outline: none; width: 100%; font-size: .875rem; }
+    .filter-select {
+      border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+      font-size: .875rem; background: var(--bg); cursor: pointer; outline: none;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: var(--bg); padding: 12px 16px; text-align: left; font-size: .78rem;
+         font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+    td { padding: 13px 16px; font-size: .875rem; border-top: 1px solid var(--border); }
+    tr:hover td { background: #f8fafc; }
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .75rem; font-weight: 600;
+    }
+    .badge-available   { background: #dcfce7; color: #15803d; }
+    .badge-assigned    { background: #dbeafe; color: #1d4ed8; }
+    .badge-maintenance { background: #fef9c3; color: #a16207; }
+    .badge-retired     { background: #fee2e2; color: #b91c1c; }
+    .badge-pending     { background: #fef3c7; color: #b45309; }
+    .badge-completed   { background: #d1fae5; color: #065f46; }
+    .actions-cell { display: flex; gap: 6px; }
+    .empty-state { text-align: center; padding: 48px 16px; color: var(--muted); }
+
+    /* ─── Modal ──────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 500;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface); border-radius: 14px; width: 100%; max-width: 520px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2); transform: translateY(-16px); transition: transform .2s;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+    }
+    .modal-header h2 { font-size: 1.05rem; font-weight: 600; }
+    .modal-close { background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body  { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+    .modal-footer { padding: 14px 24px 20px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--border); }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-size: .8rem; font-weight: 600; color: var(--muted); }
+    .form-group input, .form-group select, .form-group textarea {
+      border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
+      font-size: .875rem; outline: none; transition: border-color .15s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: var(--primary);
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* ─── Toast ──────────────────────────────────────────── */
+    #toast-container {
+      position: fixed; bottom: 24px; right: 24px; z-index: 1000;
+      display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+    }
+    .toast {
+      background: #1e293b; color: #f8fafc; padding: 13px 18px; border-radius: 10px;
+      font-size: .875rem; display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.25); pointer-events: all;
+      animation: slideIn .3s ease; min-width: 240px; max-width: 360px;
+    }
+    .toast.success { border-left: 4px solid var(--success); }
+    .toast.error   { border-left: 4px solid var(--danger); }
+    .toast.info    { border-left: 4px solid var(--info); }
+    @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; transform: translateX(110%); } }
+    .toast.fade-out { animation: fadeOut .3s ease forwards; }
+
+    /* ─── Confirm Dialog ─────────────────────────────────── */
+    #confirm-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 600;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    #confirm-overlay.open { opacity: 1; pointer-events: all; }
+    .confirm-box {
+      background: var(--surface); border-radius: 14px; padding: 28px 28px 22px;
+      max-width: 380px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+      text-align: center; transform: scale(.95); transition: transform .2s;
+    }
+    #confirm-overlay.open .confirm-box { transform: scale(1); }
+    .confirm-box h3 { margin-bottom: 10px; font-size: 1rem; }
+    .confirm-box p  { color: var(--muted); font-size: .875rem; margin-bottom: 20px; }
+    .confirm-box .btns { display: flex; gap: 10px; justify-content: center; }
+
+    /* ─── Responsive ─────────────────────────────────────── */
+    @media (max-width: 768px) {
+      #sidebar { transform: translateX(-100%); }
+      #sidebar.open { transform: translateX(0); }
+      #main { margin-left: 0; }
+      .hamburger { display: flex !important; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+    .hamburger {
+      display: none; background: none; border: none; cursor: pointer;
+      flex-direction: column; gap: 5px; padding: 4px;
+    }
+    .hamburger span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; }
+    .overlay-bg {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 150;
+    }
+    .overlay-bg.visible { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────── -->
+<nav id="sidebar">
+  <div class="sidebar-brand">
+    <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+    </svg>
+    Trackify
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" data-page="dashboard">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-section">Manage</div>
+    <div class="nav-item" data-page="assets">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0v10l-8 4-8-4V7"/></svg>
+      Assets
+    </div>
+    <div class="nav-item" data-page="employees">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      Employees
+    </div>
+    <div class="nav-item" data-page="departments">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+      Departments
+    </div>
+    <div class="nav-item" data-page="assignments">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+      Assignments
+    </div>
+    <div class="nav-item" data-page="maintenance">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+      Maintenance
+    </div>
+  </div>
+</nav>
+<div class="overlay-bg" id="overlay-bg"></div>
+
+<!-- ── Main ─────────────────────────────────────────────── -->
+<div id="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" id="hamburger">
+        <span></span><span></span><span></span>
+      </button>
+      <h1 id="page-title">Dashboard</h1>
+    </div>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </header>
+
+  <div id="content">
+
+    <!-- ── Dashboard Page ─── -->
+    <div class="page active" id="page-dashboard">
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-icon blue">
+            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0v10l-8 4-8-4V7"/></svg>
+          </div>
+          <div class="card-value" id="stat-total">—</div>
+          <div class="card-label">Total Assets</div>
+        </div>
+        <div class="card">
+          <div class="card-icon green">
+            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div class="card-value" id="stat-assigned">—</div>
+          <div class="card-label">Assigned Assets</div>
+        </div>
+        <div class="card">
+          <div class="card-icon amber">
+            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </div>
+          <div class="card-value" id="stat-maintenance">—</div>
+          <div class="card-label">Under Maintenance</div>
+        </div>
+        <div class="card">
+          <div class="card-icon purple">
+            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+          <div class="card-value" id="stat-employees">—</div>
+          <div class="card-label">Total Employees</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <strong style="font-size:.9rem">Recent Assets</strong>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th>Type</th><th>Serial #</th><th>Status</th><th>Department</th></tr></thead>
+          <tbody id="dash-recent-tbody">
+            <tr><td colspan="5" class="empty-state">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Assets Page ─── -->
+    <div class="page" id="page-assets">
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="search-box">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" id="asset-search" placeholder="Search assets…"/>
+          </div>
+          <select class="filter-select" id="asset-status-filter">
+            <option value="">All Statuses</option>
+            <option>Available</option>
+            <option>Assigned</option>
+            <option>Under Maintenance</option>
+            <option>Retired</option>
+          </select>
+          <select class="filter-select" id="asset-dept-filter"><option value="">All Departments</option></select>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th>Type</th><th>Serial #</th><th>Cost</th><th>Status</th><th>Department</th><th>Actions</th></tr></thead>
+          <tbody id="assets-tbody"><tr><td colspan="7" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Employees Page ─── -->
+    <div class="page" id="page-employees">
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="search-box">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" id="emp-search" placeholder="Search employees…"/>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Department</th><th>Actions</th></tr></thead>
+          <tbody id="emp-tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Departments Page ─── -->
+    <div class="page" id="page-departments">
+      <div class="table-wrap">
+        <div class="table-toolbar"><strong style="font-size:.9rem">All Departments</strong></div>
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Actions</th></tr></thead>
+          <tbody id="dept-tbody"><tr><td colspan="3" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Assignments Page ─── -->
+    <div class="page" id="page-assignments">
+      <div class="table-wrap">
+        <div class="table-toolbar"><strong style="font-size:.9rem">Asset Assignments</strong></div>
+        <table>
+          <thead><tr><th>Asset</th><th>Employee</th><th>Assigned</th><th>Return</th><th>Notes</th><th>Actions</th></tr></thead>
+          <tbody id="assign-tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Maintenance Page ─── -->
+    <div class="page" id="page-maintenance">
+      <div class="table-wrap">
+        <div class="table-toolbar"><strong style="font-size:.9rem">Maintenance Records</strong></div>
+        <table>
+          <thead><tr><th>Asset</th><th>Date</th><th>Description</th><th>Cost</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="maint-tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- #content -->
+</div><!-- #main -->
+
+<!-- ── Toast Container ───────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<!-- ── Confirm Dialog ────────────────────────────────────── -->
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <h3 id="confirm-title">Are you sure?</h3>
+    <p id="confirm-msg">This action cannot be undone.</p>
+    <div class="btns">
+      <button class="btn btn-outline" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modals ────────────────────────────────────────────── -->
+
+<!-- Asset Modal -->
+<div class="modal-overlay" id="modal-asset">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-asset-title">Add Asset</h2>
+      <button class="modal-close" data-close="modal-asset">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-asset">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Asset Name *</label>
+            <input type="text" name="AssetName" required placeholder="e.g. Dell Laptop"/>
+          </div>
+          <div class="form-group">
+            <label>Asset Type *</label>
+            <input type="text" name="AssetType" required placeholder="e.g. Laptop"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Serial Number</label>
+            <input type="text" name="SerialNumber" placeholder="SN-000001"/>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select name="Status">
+              <option>Available</option>
+              <option>Assigned</option>
+              <option>Under Maintenance</option>
+              <option>Retired</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Purchase Date</label>
+            <input type="date" name="PurchaseDate"/>
+          </div>
+          <div class="form-group">
+            <label>Purchase Cost (₹)</label>
+            <input type="number" name="PurchaseCost" min="0" step="0.01" placeholder="0.00"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Department</label>
+          <select name="DepartmentID" id="asset-dept-select"><option value="">— None —</option></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-close="modal-asset">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="asset-submit-btn">Save Asset</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Employee Modal -->
+<div class="modal-overlay" id="modal-employee">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-emp-title">Add Employee</h2>
+      <button class="modal-close" data-close="modal-employee">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-employee">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" name="Name" required placeholder="John Doe"/>
+          </div>
+          <div class="form-group">
+            <label>Email *</label>
+            <input type="email" name="Email" required placeholder="john@example.com"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" name="Phone" placeholder="+91 9000000000"/>
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            <select name="DepartmentID" id="emp-dept-select"><option value="">— None —</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-close="modal-employee">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Employee</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Department Modal -->
+<div class="modal-overlay" id="modal-department">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-dept-title">Add Department</h2>
+      <button class="modal-close" data-close="modal-department">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-department">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Department Name *</label>
+          <input type="text" name="DepartmentName" required placeholder="e.g. IT Department"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-close="modal-department">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Assignment Modal -->
+<div class="modal-overlay" id="modal-assignment">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-assign-title">New Assignment</h2>
+      <button class="modal-close" data-close="modal-assignment">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-assignment">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Asset *</label>
+            <select name="AssetID" id="assign-asset-select" required><option value="">Select asset…</option></select>
+          </div>
+          <div class="form-group">
+            <label>Employee *</label>
+            <select name="EmployeeID" id="assign-emp-select" required><option value="">Select employee…</option></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Assign Date</label>
+            <input type="date" name="AssignDate"/>
+          </div>
+          <div class="form-group">
+            <label>Return Date</label>
+            <input type="date" name="ReturnDate"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea name="Notes" rows="2" placeholder="Optional notes…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-close="modal-assignment">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Assignment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Maintenance Modal -->
+<div class="modal-overlay" id="modal-maintenance">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-maint-title">Add Maintenance Record</h2>
+      <button class="modal-close" data-close="modal-maintenance">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-maintenance">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Asset *</label>
+            <select name="AssetID" id="maint-asset-select" required><option value="">Select asset…</option></select>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select name="Status">
+              <option>Pending</option>
+              <option>In Progress</option>
+              <option>Completed</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Maintenance Date</label>
+            <input type="date" name="MaintenanceDate"/>
+          </div>
+          <div class="form-group">
+            <label>Cost (₹)</label>
+            <input type="number" name="Cost" min="0" step="0.01" placeholder="0.00"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea name="Description" rows="2" placeholder="Describe the maintenance work…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-close="modal-maintenance">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Record</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ SCRIPTS ══════════════════════════════ -->
+<script>
+const API = '';   // same origin
+
+/* ─── Utils ──────────────────────────────────────────────── */
+const $  = (sel, ctx = document) => ctx.querySelector(sel);
+const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+const fmt = (n) => n != null ? `₹${parseFloat(n).toLocaleString('en-IN')}` : '—';
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '—';
+
+/* ─── Toast ──────────────────────────────────────────────── */
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  el.innerHTML = `<span>${icons[type] || '🔔'}</span><span>${msg}</span>`;
+  $('#toast-container').appendChild(el);
+  setTimeout(() => {
+    el.classList.add('fade-out');
+    setTimeout(() => el.remove(), 320);
+  }, 3500);
+}
+
+/* ─── Confirm Dialog ─────────────────────────────────────── */
+function showConfirm(msg) {
+  return new Promise(resolve => {
+    const ov = $('#confirm-overlay');
+    $('#confirm-msg').textContent = msg;
+    ov.classList.add('open');
+    const cleanup = (val) => {
+      ov.classList.remove('open');
+      $('#confirm-ok').onclick  = null;
+      $('#confirm-cancel').onclick = null;
+      resolve(val);
+    };
+    $('#confirm-ok').onclick     = () => cleanup(true);
+    $('#confirm-cancel').onclick = () => cleanup(false);
+  });
+}
+
+/* ─── Modal helpers ──────────────────────────────────────── */
+function openModal(id)  { $(`#${id}`).classList.add('open'); }
+function closeModal(id) { $(`#${id}`).classList.remove('open'); }
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-close]');
+  if (btn) closeModal(btn.dataset.close);
+  const ov = e.target;
+  if (ov.classList.contains('modal-overlay')) closeModal(ov.id);
+});
+
+/* ─── Sidebar navigation ─────────────────────────────────── */
+const navItems   = $$('.nav-item');
+const pages      = $$('.page');
+const pageTitles = {
+  dashboard: 'Dashboard', assets: 'Assets', employees: 'Employees',
+  departments: 'Departments', assignments: 'Assignments', maintenance: 'Maintenance'
+};
+const pageActions = {
+  assets:      () => `<button class="btn btn-primary" id="btn-add-asset"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>Add Asset</button>`,
+  employees:   () => `<button class="btn btn-primary" id="btn-add-emp"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>Add Employee</button>`,
+  departments: () => `<button class="btn btn-primary" id="btn-add-dept"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>Add Department</button>`,
+  assignments: () => `<button class="btn btn-primary" id="btn-add-assign"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>Assign Asset</button>`,
+  maintenance: () => `<button class="btn btn-primary" id="btn-add-maint"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>Add Record</button>`,
+};
+
+function navigateTo(page) {
+  navItems.forEach(n => n.classList.toggle('active', n.dataset.page === page));
+  pages.forEach(p => p.classList.toggle('active', p.id === `page-${page}`));
+  $('#page-title').textContent = pageTitles[page] || page;
+  const actions = $('#topbar-actions');
+  actions.innerHTML = pageActions[page] ? pageActions[page]() : '';
+  bindTopbarButtons(page);
+  loadPage(page);
+  // close mobile sidebar
+  $('#sidebar').classList.remove('open');
+  $('#overlay-bg').classList.remove('visible');
+}
+
+function bindTopbarButtons(page) {
+  const m = {
+    assets:      ['btn-add-asset',  openAssetModal,       null],
+    employees:   ['btn-add-emp',    openEmployeeModal,    null],
+    departments: ['btn-add-dept',   openDeptModal,        null],
+    assignments: ['btn-add-assign', openAssignmentModal,  null],
+    maintenance: ['btn-add-maint',  openMaintenanceModal, null],
+  };
+  if (m[page]) {
+    const btn = $(`#${m[page][0]}`);
+    if (btn) btn.onclick = () => m[page][1]();
+  }
+}
+
+navItems.forEach(n => n.addEventListener('click', () => navigateTo(n.dataset.page)));
+
+// Hamburger
+$('#hamburger').addEventListener('click', () => {
+  $('#sidebar').classList.toggle('open');
+  $('#overlay-bg').classList.toggle('visible');
+});
+$('#overlay-bg').addEventListener('click', () => {
+  $('#sidebar').classList.remove('open');
+  $('#overlay-bg').classList.remove('visible');
+});
+
+/* ─── API helpers ────────────────────────────────────────── */
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(API + url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+/* ─── Departments (used in selects everywhere) ───────────── */
+let departments = [];
+async function loadDepartments() {
+  departments = await apiFetch('/api/departments');
+  $$('.dept-select-target, #asset-dept-select, #emp-dept-select').forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— None —</option>';
+    departments.forEach(d => {
+      const o = new Option(d.DepartmentName, d.DepartmentID);
+      sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+  });
+  // dept filter in assets page
+  const df = $('#asset-dept-filter');
+  if (df) {
+    df.innerHTML = '<option value="">All Departments</option>';
+    departments.forEach(d => df.appendChild(new Option(d.DepartmentName, d.DepartmentID)));
+  }
+}
+
+/* ─── Page loaders ───────────────────────────────────────── */
+function loadPage(page) {
+  const loaders = {
+    dashboard:   loadDashboard,
+    assets:      loadAssets,
+    employees:   loadEmployees,
+    departments: loadDeptPage,
+    assignments: loadAssignments,
+    maintenance: loadMaintenance,
+  };
+  if (loaders[page]) loaders[page]();
+}
+
+// ── Dashboard ────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const [stats, assets] = await Promise.all([
+      apiFetch('/api/dashboard'),
+      apiFetch('/api/assets'),
+    ]);
+    $('#stat-total').textContent      = stats.totalAssets;
+    $('#stat-assigned').textContent   = stats.assignedAssets;
+    $('#stat-maintenance').textContent = stats.underMaintenance;
+    $('#stat-employees').textContent  = stats.totalEmployees;
+
+    const tbody = $('#dash-recent-tbody');
+    const rows  = assets.slice(0, 8);
+    tbody.innerHTML = rows.length ? rows.map(a => `
+      <tr>
+        <td>${esc(a.AssetName)}</td>
+        <td>${esc(a.AssetType)}</td>
+        <td>${esc(a.SerialNumber || '—')}</td>
+        <td>${statusBadge(a.Status)}</td>
+        <td>${esc(a.DepartmentName || '—')}</td>
+      </tr>`).join('') : '<tr><td colspan="5" class="empty-state">No assets found.</td></tr>';
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Assets ──────────────────────────────────────────────
+let assetsData = [];
+async function loadAssets(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  try {
+    assetsData = await apiFetch(`/api/assets${qs ? '?' + qs : ''}`);
+    renderAssets(assetsData);
+  } catch(e) { toast(e.message, 'error'); }
+}
+function renderAssets(data) {
+  const tbody = $('#assets-tbody');
+  tbody.innerHTML = data.length ? data.map(a => `
+    <tr>
+      <td><strong>${esc(a.AssetName)}</strong></td>
+      <td>${esc(a.AssetType)}</td>
+      <td>${esc(a.SerialNumber || '—')}</td>
+      <td>${fmt(a.PurchaseCost)}</td>
+      <td>${statusBadge(a.Status)}</td>
+      <td>${esc(a.DepartmentName || '—')}</td>
+      <td>
+        <div class="actions-cell">
+          <button class="btn btn-outline btn-sm" data-action="edit-asset" data-id="${a.AssetID}">Edit</button>
+          <button class="btn btn-danger btn-sm" data-action="del-asset" data-id="${a.AssetID}" data-name="${esc(a.AssetName)}">Delete</button>
+        </div>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="7" class="empty-state">No assets found.</td></tr>';
+}
+
+function getAssetFilters() {
+  return {
+    search:     ($('#asset-search') || {}).value    || '',
+    status:     ($('#asset-status-filter') || {}).value || '',
+    department: ($('#asset-dept-filter') || {}).value   || '',
+  };
+}
+
+// Debounced search
+let assetSearchTimer;
+document.addEventListener('input', e => {
+  if (e.target.id === 'asset-search') {
+    clearTimeout(assetSearchTimer);
+    assetSearchTimer = setTimeout(() => loadAssets(getAssetFilters()), 350);
+  }
+  if (e.target.id === 'emp-search') filterEmployees(e.target.value);
+});
+document.addEventListener('change', e => {
+  if (['asset-status-filter','asset-dept-filter'].includes(e.target.id)) loadAssets(getAssetFilters());
+});
+
+// ── Asset Modal ──────────────────────────────────────────
+let editingAssetId = null;
+function openAssetModal(asset = null) {
+  const form = $('#form-asset');
+  form.reset();
+  editingAssetId = asset ? asset.AssetID : null;
+  $('#modal-asset-title').textContent = asset ? 'Edit Asset' : 'Add Asset';
+  if (asset) {
+    form.AssetName.value    = asset.AssetName    || '';
+    form.AssetType.value    = asset.AssetType    || '';
+    form.SerialNumber.value = asset.SerialNumber || '';
+    form.Status.value       = asset.Status       || 'Available';
+    form.PurchaseDate.value = asset.PurchaseDate ? asset.PurchaseDate.split('T')[0] : '';
+    form.PurchaseCost.value = asset.PurchaseCost || '';
+    form.DepartmentID.value = asset.DepartmentID || '';
+  }
+  openModal('modal-asset');
+}
+async function editAsset(id) {
+  try {
+    const a = await apiFetch(`/api/assets/${id}`);
+    await loadDepartments();
+    openAssetModal(a);
+  } catch(e) { toast(e.message, 'error'); }
+}
+async function deleteAsset(id, name) {
+  if (!await showConfirm(`Delete asset "${name}"?`)) return;
+  try {
+    await apiFetch(`/api/assets/${id}`, { method: 'DELETE' });
+    toast('Asset deleted');
+    loadAssets(getAssetFilters());
+  } catch(e) { toast(e.message, 'error'); }
+}
+$('#form-asset').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd   = new FormData(e.target);
+  const body = Object.fromEntries(fd.entries());
+  try {
+    if (editingAssetId) {
+      await apiFetch(`/api/assets/${editingAssetId}`, { method: 'PUT', body: JSON.stringify(body) });
+      toast('Asset updated');
+    } else {
+      await apiFetch('/api/assets', { method: 'POST', body: JSON.stringify(body) });
+      toast('Asset created');
+    }
+    closeModal('modal-asset');
+    loadAssets(getAssetFilters());
+    if ($('#page-dashboard').classList.contains('active')) loadDashboard();
+  } catch(e) { toast(e.message, 'error'); }
+});
+
+// ── Employees ────────────────────────────────────────────
+let empData = [];
+async function loadEmployees() {
+  try {
+    empData = await apiFetch('/api/employees');
+    renderEmployees(empData);
+  } catch(e) { toast(e.message, 'error'); }
+}
+function renderEmployees(data) {
+  $('#emp-tbody').innerHTML = data.length ? data.map(e => `
+    <tr>
+      <td><strong>${esc(e.Name)}</strong></td>
+      <td>${esc(e.Email)}</td>
+      <td>${esc(e.Phone || '—')}</td>
+      <td>${esc(e.DepartmentName || '—')}</td>
+      <td>
+        <div class="actions-cell">
+          <button class="btn btn-outline btn-sm" data-action="edit-emp" data-id="${e.EmployeeID}">Edit</button>
+          <button class="btn btn-danger btn-sm" data-action="del-emp" data-id="${e.EmployeeID}" data-name="${esc(e.Name)}">Delete</button>
+        </div>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="5" class="empty-state">No employees found.</td></tr>';
+}
+function filterEmployees(q) {
+  const lc = q.toLowerCase();
+  renderEmployees(empData.filter(e =>
+    e.Name.toLowerCase().includes(lc) || e.Email.toLowerCase().includes(lc) || (e.DepartmentName || '').toLowerCase().includes(lc)
+  ));
+}
+
+let editingEmpId = null;
+function openEmployeeModal(emp = null) {
+  const form = $('#form-employee');
+  form.reset();
+  editingEmpId = emp ? emp.EmployeeID : null;
+  $('#modal-emp-title').textContent = emp ? 'Edit Employee' : 'Add Employee';
+  if (emp) {
+    form.Name.value         = emp.Name         || '';
+    form.Email.value        = emp.Email        || '';
+    form.Phone.value        = emp.Phone        || '';
+    form.DepartmentID.value = emp.DepartmentID || '';
+  }
+  openModal('modal-employee');
+}
+async function editEmployee(id) {
+  try {
+    const emp = await apiFetch(`/api/employees/${id}`);
+    await loadDepartments();
+    openEmployeeModal(emp);
+  } catch(e) { toast(e.message, 'error'); }
+}
+async function deleteEmployee(id, name) {
+  if (!await showConfirm(`Delete employee "${name}"?`)) return;
+  try {
+    await apiFetch(`/api/employees/${id}`, { method: 'DELETE' });
+    toast('Employee deleted');
+    loadEmployees();
+  } catch(e) { toast(e.message, 'error'); }
+}
+$('#form-employee').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd   = new FormData(e.target);
+  const body = Object.fromEntries(fd.entries());
+  try {
+    if (editingEmpId) {
+      await apiFetch(`/api/employees/${editingEmpId}`, { method: 'PUT', body: JSON.stringify(body) });
+      toast('Employee updated');
+    } else {
+      await apiFetch('/api/employees', { method: 'POST', body: JSON.stringify(body) });
+      toast('Employee created');
+    }
+    closeModal('modal-employee');
+    loadEmployees();
+  } catch(e) { toast(e.message, 'error'); }
+});
+
+// ── Departments ──────────────────────────────────────────
+async function loadDeptPage() {
+  await loadDepartments();
+  const tbody = $('#dept-tbody');
+  tbody.innerHTML = departments.length ? departments.map(d => `
+    <tr>
+      <td>${d.DepartmentID}</td>
+      <td><strong>${esc(d.DepartmentName)}</strong></td>
+      <td>
+        <div class="actions-cell">
+          <button class="btn btn-outline btn-sm" data-action="edit-dept" data-id="${d.DepartmentID}" data-name="${esc(d.DepartmentName)}">Edit</button>
+          <button class="btn btn-danger btn-sm" data-action="del-dept" data-id="${d.DepartmentID}" data-name="${esc(d.DepartmentName)}">Delete</button>
+        </div>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="3" class="empty-state">No departments.</td></tr>';
+}
+let editingDeptId = null;
+function openDeptModal(id = null, name = '') {
+  const form = $('#form-department');
+  form.reset();
+  editingDeptId = id;
+  $('#modal-dept-title').textContent = id ? 'Edit Department' : 'Add Department';
+  if (name) form.DepartmentName.value = name;
+  openModal('modal-department');
+}
+function editDept(id, name)   { openDeptModal(id, name); }
+async function deleteDept(id, name) {
+  if (!await showConfirm(`Delete department "${name}"?`)) return;
+  try {
+    await apiFetch(`/api/departments/${id}`, { method: 'DELETE' });
+    toast('Department deleted');
+    loadDeptPage();
+  } catch(e) { toast(e.message, 'error'); }
+}
+$('#form-department').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd   = new FormData(e.target);
+  const body = Object.fromEntries(fd.entries());
+  try {
+    if (editingDeptId) {
+      await apiFetch(`/api/departments/${editingDeptId}`, { method: 'PUT', body: JSON.stringify(body) });
+      toast('Department updated');
+    } else {
+      await apiFetch('/api/departments', { method: 'POST', body: JSON.stringify(body) });
+      toast('Department created');
+    }
+    closeModal('modal-department');
+    loadDeptPage();
+  } catch(e) { toast(e.message, 'error'); }
+});
+
+// ── Assignments ──────────────────────────────────────────
+async function loadAssignments() {
+  try {
+    const data = await apiFetch('/api/assignments');
+    const tbody = $('#assign-tbody');
+    tbody.innerHTML = data.length ? data.map(a => `
+      <tr>
+        <td><strong>${esc(a.AssetName)}</strong></td>
+        <td>${esc(a.EmployeeName)}</td>
+        <td>${fmtDate(a.AssignDate)}</td>
+        <td>${fmtDate(a.ReturnDate)}</td>
+        <td>${esc(a.Notes || '—')}</td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn-danger btn-sm" data-action="del-assign" data-id="${a.AssignmentID}">Remove</button>
+          </div>
+        </td>
+      </tr>`).join('') : '<tr><td colspan="6" class="empty-state">No assignments found.</td></tr>';
+  } catch(e) { toast(e.message, 'error'); }
+}
+async function openAssignmentModal() {
+  await Promise.all([loadAssignAssets(), loadAssignEmps()]);
+  const form = $('#form-assignment');
+  form.reset();
+  $('#modal-assign-title').textContent = 'New Assignment';
+  openModal('modal-assignment');
+}
+async function loadAssignAssets() {
+  const sel  = $('#assign-asset-select');
+  const data = await apiFetch('/api/assets?status=Available');
+  sel.innerHTML = '<option value="">Select asset…</option>';
+  data.forEach(a => sel.appendChild(new Option(`${a.AssetName} (${a.SerialNumber || 'no SN'})`, a.AssetID)));
+}
+async function loadAssignEmps() {
+  const sel  = $('#assign-emp-select');
+  const data = await apiFetch('/api/employees');
+  sel.innerHTML = '<option value="">Select employee…</option>';
+  data.forEach(e => sel.appendChild(new Option(e.Name, e.EmployeeID)));
+}
+async function deleteAssignment(id) {
+  if (!await showConfirm('Remove this assignment?')) return;
+  try {
+    await apiFetch(`/api/assignments/${id}`, { method: 'DELETE' });
+    toast('Assignment removed');
+    loadAssignments();
+  } catch(e) { toast(e.message, 'error'); }
+}
+$('#form-assignment').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd   = new FormData(e.target);
+  const body = Object.fromEntries(fd.entries());
+  try {
+    await apiFetch('/api/assignments', { method: 'POST', body: JSON.stringify(body) });
+    toast('Asset assigned successfully');
+    closeModal('modal-assignment');
+    loadAssignments();
+  } catch(e) { toast(e.message, 'error'); }
+});
+
+// ── Maintenance ──────────────────────────────────────────
+async function loadMaintenance() {
+  try {
+    const data = await apiFetch('/api/maintenance');
+    const tbody = $('#maint-tbody');
+    tbody.innerHTML = data.length ? data.map(m => `
+      <tr>
+        <td><strong>${esc(m.AssetName)}</strong></td>
+        <td>${fmtDate(m.MaintenanceDate)}</td>
+        <td>${esc(m.Description || '—')}</td>
+        <td>${fmt(m.Cost)}</td>
+        <td>${maintBadge(m.Status)}</td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn-outline btn-sm" data-action="edit-maint" data-id="${m.MaintenanceID}">Edit</button>
+            <button class="btn btn-danger btn-sm" data-action="del-maint" data-id="${m.MaintenanceID}">Delete</button>
+          </div>
+        </td>
+      </tr>`).join('') : '<tr><td colspan="6" class="empty-state">No records found.</td></tr>';
+  } catch(e) { toast(e.message, 'error'); }
+}
+let editingMaintId = null;
+async function openMaintenanceModal(rec = null) {
+  const assets = await apiFetch('/api/assets');
+  const sel = $('#maint-asset-select');
+  sel.innerHTML = '<option value="">Select asset…</option>';
+  assets.forEach(a => sel.appendChild(new Option(a.AssetName, a.AssetID)));
+
+  const form = $('#form-maintenance');
+  form.reset();
+  editingMaintId = rec ? rec.MaintenanceID : null;
+  $('#modal-maint-title').textContent = rec ? 'Edit Maintenance' : 'Add Maintenance Record';
+  if (rec) {
+    form.AssetID.value          = rec.AssetID          || '';
+    form.Status.value           = rec.Status           || 'Pending';
+    form.MaintenanceDate.value  = rec.MaintenanceDate ? rec.MaintenanceDate.split('T')[0] : '';
+    form.Cost.value             = rec.Cost             || '';
+    form.Description.value      = rec.Description      || '';
+  }
+  openModal('modal-maintenance');
+}
+async function editMaintenance(id) {
+  try {
+    const data = await apiFetch(`/api/maintenance`);
+    const rec  = data.find(m => m.MaintenanceID === id);
+    if (rec) openMaintenanceModal(rec);
+  } catch(e) { toast(e.message, 'error'); }
+}
+async function deleteMaintenance(id) {
+  if (!await showConfirm('Delete this maintenance record?')) return;
+  try {
+    await apiFetch(`/api/maintenance/${id}`, { method: 'DELETE' });
+    toast('Record deleted');
+    loadMaintenance();
+  } catch(e) { toast(e.message, 'error'); }
+}
+$('#form-maintenance').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd   = new FormData(e.target);
+  const body = Object.fromEntries(fd.entries());
+  try {
+    if (editingMaintId) {
+      await apiFetch(`/api/maintenance/${editingMaintId}`, { method: 'PUT', body: JSON.stringify(body) });
+      toast('Record updated');
+    } else {
+      await apiFetch('/api/maintenance', { method: 'POST', body: JSON.stringify(body) });
+      toast('Maintenance record added');
+    }
+    closeModal('modal-maintenance');
+    loadMaintenance();
+  } catch(e) { toast(e.message, 'error'); }
+});
+
+/* ─── Event delegation for table action buttons ──────────── */
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const { action, id, name } = btn.dataset;
+  switch (action) {
+    case 'edit-asset':   editAsset(parseInt(id, 10)); break;
+    case 'del-asset':    deleteAsset(parseInt(id, 10), name); break;
+    case 'edit-emp':     editEmployee(parseInt(id, 10)); break;
+    case 'del-emp':      deleteEmployee(parseInt(id, 10), name); break;
+    case 'edit-dept':    editDept(parseInt(id, 10), name); break;
+    case 'del-dept':     deleteDept(parseInt(id, 10), name); break;
+    case 'del-assign':   deleteAssignment(parseInt(id, 10)); break;
+    case 'edit-maint':   editMaintenance(parseInt(id, 10)); break;
+    case 'del-maint':    deleteMaintenance(parseInt(id, 10)); break;
+  }
+});
+
+/* ─── Badge helpers ──────────────────────────────────────── */
+function statusBadge(s) {
+  const map = {
+    'Available':        'badge-available',
+    'Assigned':         'badge-assigned',
+    'Under Maintenance':'badge-maintenance',
+    'Retired':          'badge-retired',
+  };
+  return `<span class="badge ${map[s] || ''}">${esc(s || '—')}</span>`;
+}
+function maintBadge(s) {
+  const map = { 'Pending': 'badge-pending', 'In Progress': 'badge-maintenance', 'Completed': 'badge-completed' };
+  return `<span class="badge ${map[s] || ''}">${esc(s || '—')}</span>`;
+}
+
+/* ─── XSS guard ──────────────────────────────────────────── */
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ─── Init ───────────────────────────────────────────────── */
+(async () => {
+  await loadDepartments();
+  loadDashboard();
+})();
+</script>
+</body>
+</html>
